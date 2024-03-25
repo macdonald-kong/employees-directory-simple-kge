@@ -71,10 +71,9 @@ jobs:
 
     - name: Ping Kong Konnect
       run: |
-        deck ping \
+        deck gateway ping \
           --kong-addr "${{ vars.KONG_ADDR }}" \
-          --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
-          --workspace "${{ vars.WORKSPACE }}"\
+          --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}"
 
     #######################################
     #
