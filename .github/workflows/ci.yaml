@@ -161,4 +161,4 @@ jobs:
     - name: Run Tests
       id: run-tests
       run: |
-        curl ${{ vars.KONG_GW }}
+        curl ${{ vars.KONG_GW }}/api/employees
