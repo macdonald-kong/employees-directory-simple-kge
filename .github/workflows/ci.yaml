@@ -1,0 +1,165 @@
+# Basic GitHub Actions Pipeline for Kong Gateway Enterprise
+#
+# Author: David MacDonald
+# Contact: david.macdonald@konghq.com
+# Website: https://konghq.com/
+#
+# DISCLAIMER: DO NOT USE THIS IN PRODUCTION - FOR DEMONSTRATION PURPOSES ONLY
+#
+
+name: CI
+
+on:
+
+  push:
+    branches: 
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+  deploy-api:
+  
+    runs-on: ubuntu-22.04
+    name: Deploy API to Kong Enterprise Gateway Control Plane
+
+    steps:
+    
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Install Kongs decK tool: https://docs.konghq.com/deck/latest/
+
+    - name: Install decK tool
+      run: |
+        curl -sL https://github.com/Kong/deck/releases/download/v1.36.1/deck_1.36.1_linux_amd64.tar.gz -o deck.tar.gz
+        tar -xf deck.tar.gz -C /tmp
+        sudo cp /tmp/deck /usr/local/bin/
+
+    # Install Inso CLI which we will use for Linting and Testing: https://docs.insomnia.rest/inso-cli/introduction
+
+    - name: Install Inso CLI tool
+      run: |
+        curl -sL https://github.com/Kong/insomnia/releases/download/lib%408.6.1/inso-linux-8.6.1.tar.xz -o inso.tar.xz
+        tar -xf inso.tar.xz -C /tmp
+        sudo cp /tmp/inso /usr/local/bin/
+
+    # Read the configuration file and the OpenAPI Spec and populate the variables that we will be using
+
+    - name: Set Variables
+      run: |
+        echo "SERVICE_TAGS=$(yq '.info.title' ./api/oas.yaml)" >> $GITHUB_ENV
+
+    # Check that the OpenAPI Specification file that we exported from the Insomnia Workspace is valid and well formed
+
+    - name: Lint OpenAPI Spec
+      run: |
+        inso lint spec ./api/oas.yaml
+
+    # Use decKs openapi2kong command to generate Kong Declarative Configuration from the OpenAPI Specification exported from the Insomnia Workspace.
+
+    - name: Generate Kong declarative configuration from Spec
+      run: |
+        deck file openapi2kong \
+          --spec ./api/oas.yaml \
+          --format yaml \
+          --select-tag ${{ env.SERVICE_TAGS }} \
+          --output-file ./kong-generated.yaml
+
+    # Use decK Ping to check that we can connect to the Kong Konnect Control Plane
+
+    - name: Ping Kong Konnect
+      run: |
+        deck ping \
+          --kong-addr "{{ env.KONG_ADDR }}" \
+          --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
+          --workspace "${{ env.WORKSPACE }}"\
+
+    #######################################
+    #
+    #   BUILD CONFIGURATION STAGE
+    #
+    #######################################
+
+    # Use decK Merge to merge together our generated Kong Declarative Configuration File with the contents of the Plugin folder in our repository
+
+    - name: Merge Kong Configuration with Plugins
+      run: |
+        deck file merge ./kong-generated.yaml ./api/plugins/* -o kong.yaml
+
+    # Use decK Validate to check that the new generated Kong Declarative Configuration is valid
+
+    - name: Validate Kong declarative configuration
+      run: |
+        deck validate \
+          --state kong.yaml
+
+    # Publishes Kong Declarative Configuration as an artifact
+
+    - name: 'Upload Kong Config Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.SERVICE_TAGS }}-api-kong-config
+        path: kong.yaml
+
+
+    #######################################
+    #
+    #   DEPLOY CONFIGURATION STAGE
+    #
+    #######################################
+
+    # Compare the new desired state represented in the generated Kong Declarative Configuration with the current state of the platform
+
+    - name: Diff declarative config
+      run: |
+        deck diff \
+          --state kong.yaml \
+          --kong-addr "{{ env.KONG_ADDR }}" \
+          --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
+          --workspace ${{ env.WORKSPACE }} \
+          --select-tag ${{ env.SERVICE_TAGS }}
+
+    # Use decK dump to take a backup of the entire Runtime Group Configuration
+      
+    - name: Backup Existing Kong Configuration
+      run: |
+        deck dump \
+          --konnect-addr ${{ secrets.KONNECT_ADDR }} \
+          --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
+          --workspace ${{ env.WORKSPACE }} \
+          --output-file kong-backup.yaml
+
+    # Publishes the Backup Kong Declarative Configuration as an artifact
+
+    - name: 'Upload Kong Config Backup Artifact'
+      uses: actions/upload-artifact@v3
+      with:
+        name: kong-backup
+        path: kong-backup.yaml
+
+    # Uses the deck sync command to push our generated Kong Declarative Configuration to the Kong Konnect Control Plane
+
+    - name: Deploy declarative config to development environment
+      id: deploy-declarative-config
+      run: |
+        deck sync \
+          --state kong.yaml \
+          --kong-addr "{{ env.KONG_ADDR }}" \
+          --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
+          --workspace ${{ env.WORKSPACE }} \
+          --select-tag ${{ env.SERVICE_TAGS }}
+
+    #######################################
+    #
+    #   TESTING STAGE
+    #
+    #######################################
+
+    # Run the tests defined in our Insomnia Test Suite
+
+    - name: Run Tests
+      id: run-tests
+      run: |
+        curl ${{ env.KONG_GW }}
