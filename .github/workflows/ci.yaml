@@ -72,7 +72,7 @@ jobs:
     - name: Ping Kong Konnect
       run: |
         deck ping \
-          --kong-addr "{{ env.KONG_ADDR }}" \
+          --kong-addr "${{ env.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
           --workspace "${{ env.WORKSPACE }}"\
 
@@ -116,7 +116,7 @@ jobs:
       run: |
         deck diff \
           --state kong.yaml \
-          --kong-addr "{{ env.KONG_ADDR }}" \
+          --kong-addr "${{ env.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
           --workspace ${{ env.WORKSPACE }} \
           --select-tag ${{ env.SERVICE_TAGS }}
@@ -146,7 +146,7 @@ jobs:
       run: |
         deck sync \
           --state kong.yaml \
-          --kong-addr "{{ env.KONG_ADDR }}" \
+          --kong-addr "${{ env.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
           --workspace ${{ env.WORKSPACE }} \
           --select-tag ${{ env.SERVICE_TAGS }}
