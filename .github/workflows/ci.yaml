@@ -72,9 +72,9 @@ jobs:
     - name: Ping Kong Konnect
       run: |
         deck ping \
-          --kong-addr "${{ env.KONG_ADDR }}" \
+          --kong-addr "${{ vars.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
-          --workspace "${{ env.WORKSPACE }}"\
+          --workspace "${{ vars.WORKSPACE }}"\
 
     #######################################
     #
@@ -116,9 +116,9 @@ jobs:
       run: |
         deck diff \
           --state kong.yaml \
-          --kong-addr "${{ env.KONG_ADDR }}" \
+          --kong-addr "${{ vars.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
-          --workspace ${{ env.WORKSPACE }} \
+          --workspace ${{ vars.WORKSPACE }} \
           --select-tag ${{ env.SERVICE_TAGS }}
 
     # Use decK dump to take a backup of the entire Runtime Group Configuration
@@ -126,9 +126,9 @@ jobs:
     - name: Backup Existing Kong Configuration
       run: |
         deck dump \
-          --konnect-addr ${{ secrets.KONNECT_ADDR }} \
+          --konnect-addr ${{ vars.KONNECT_ADDR }} \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
-          --workspace ${{ env.WORKSPACE }} \
+          --workspace ${{ vars.WORKSPACE }} \
           --output-file kong-backup.yaml
 
     # Publishes the Backup Kong Declarative Configuration as an artifact
@@ -146,9 +146,9 @@ jobs:
       run: |
         deck sync \
           --state kong.yaml \
-          --kong-addr "${{ env.KONG_ADDR }}" \
+          --kong-addr "${{ vars.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
-          --workspace ${{ env.WORKSPACE }} \
+          --workspace ${{ vars.WORKSPACE }} \
           --select-tag ${{ env.SERVICE_TAGS }}
 
     #######################################
@@ -162,4 +162,4 @@ jobs:
     - name: Run Tests
       id: run-tests
       run: |
-        curl ${{ env.KONG_GW }}
+        curl ${{ vars.KONG_GW }}
