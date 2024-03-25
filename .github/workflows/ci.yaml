@@ -125,7 +125,7 @@ jobs:
     - name: Backup Existing Kong Configuration
       run: |
         deck dump \
-          --konnect-addr ${{ vars.KONNECT_ADDR }} \
+          --kong-addr "${{ vars.KONG_ADDR }}" \
           --headers "kong-admin-token:${{ secrets.KONG_TOKEN }}" \
           --workspace ${{ vars.WORKSPACE }} \
           --output-file kong-backup.yaml
