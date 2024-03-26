@@ -12,7 +12,7 @@ info:
   version: 1.0.1
 
 externalDocs:
-  description: Find out more here
+  description: Find out more in the docs here
   url: https://konghq.com/
 
 servers:
